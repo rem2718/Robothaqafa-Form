@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Randomized Forms"
+description = "A form builder that imports questions from Excel, selects five questions at random for each respondent, and collects responses in a focused Google Forms-style experience."
+version = "1.0.0"
+id = "artifacts/randomized-forms"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22923
+
+[services.development]
+run = "pnpm --filter @workspace/randomized-forms run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/randomized-forms", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/randomized-forms/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22923"
+BASE_PATH = "/"

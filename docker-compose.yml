@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: randomized_forms
+      POSTGRES_USER: randomized_forms
+      POSTGRES_PASSWORD: randomized_forms
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U randomized_forms -d randomized_forms"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql://randomized_forms:randomized_forms@db:5432/randomized_forms
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      COOKIE_SECURE: "false"
+      PORT: 5000
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5174:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:

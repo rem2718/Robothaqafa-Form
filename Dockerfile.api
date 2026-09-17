@@ -1,0 +1,40 @@
+FROM node:22-bookworm-slim AS build
+
+WORKDIR /app
+RUN npm install --global pnpm@9.15.9
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.base.json ./
+COPY artifacts/api-server/package.json artifacts/api-server/package.json
+COPY lib/api-zod/package.json lib/api-zod/package.json
+COPY lib/db/package.json lib/db/package.json
+
+RUN pnpm install --no-frozen-lockfile
+
+COPY artifacts/api-server artifacts/api-server
+COPY lib/api-zod lib/api-zod
+COPY lib/db lib/db
+
+RUN pnpm --filter @workspace/api-server run build
+
+FROM node:22-bookworm-slim AS runtime
+
+WORKDIR /app
+RUN npm install --global pnpm@9.15.9
+
+COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
+COPY --from=build /app/artifacts/api-server/package.json artifacts/api-server/package.json
+COPY --from=build /app/lib/api-zod/package.json lib/api-zod/package.json
+COPY --from=build /app/lib/db/package.json lib/db/package.json
+RUN pnpm install --no-frozen-lockfile
+
+COPY --from=build /app/artifacts/api-server/dist artifacts/api-server/dist
+COPY --from=build /app/lib/api-zod/src lib/api-zod/src
+COPY --from=build /app/lib/db/src lib/db/src
+COPY --from=build /app/lib/db/drizzle.config.ts lib/db/drizzle.config.ts
+COPY docker/api-entrypoint.sh ./docker/api-entrypoint.sh
+RUN chmod +x ./docker/api-entrypoint.sh
+
+ENV NODE_ENV=production
+ENV PORT=5000
+EXPOSE 5000
+ENTRYPOINT ["/app/docker/api-entrypoint.sh"]

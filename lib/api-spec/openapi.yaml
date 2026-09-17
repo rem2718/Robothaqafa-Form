@@ -1,0 +1,305 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: forms
+    description: Public randomized form operations
+  - name: admin
+    description: Protected form administration
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /forms/{formId}:
+    get:
+      operationId: getPublicForm
+      tags: [forms]
+      summary: Get a randomized respondent form
+      parameters:
+        - $ref: "#/components/parameters/FormId"
+      responses:
+        "200":
+          description: A form with five assigned questions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicForm"
+        "404":
+          description: Form not found
+    post:
+      operationId: submitFormResponse
+      tags: [forms]
+      summary: Submit a respondent response
+      parameters:
+        - $ref: "#/components/parameters/FormId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResponseInput"
+      responses:
+        "201":
+          description: Response recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseRecord"
+        "400":
+          description: Invalid response
+        "404":
+          description: Form not found
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Start an admin session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Admin session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          description: Invalid password
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: End an admin session
+      responses:
+        "204":
+          description: Admin session ended
+  /admin/status:
+    get:
+      operationId: getAdminStatus
+      tags: [admin]
+      summary: Check admin session
+      responses:
+        "200":
+          description: Current admin session status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+  /admin/forms/{formId}:
+    get:
+      operationId: getAdminForm
+      tags: [admin]
+      summary: Get the full form configuration
+      parameters:
+        - $ref: "#/components/parameters/FormId"
+      responses:
+        "200":
+          description: Full form configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminForm"
+        "401":
+          description: Admin session required
+    put:
+      operationId: saveAdminForm
+      tags: [admin]
+      summary: Save the form configuration
+      parameters:
+        - $ref: "#/components/parameters/FormId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormInput"
+      responses:
+        "200":
+          description: Saved form configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminForm"
+        "401":
+          description: Admin session required
+  /admin/responses/{formId}:
+    get:
+      operationId: listAdminResponses
+      tags: [admin]
+      summary: List submitted responses
+      parameters:
+        - $ref: "#/components/parameters/FormId"
+      responses:
+        "200":
+          description: Submitted responses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResponseRecord"
+        "401":
+          description: Admin session required
+components:
+  parameters:
+    FormId:
+      name: formId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    FormQuestion:
+      type: object
+      required: [id, text]
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        sourceRow:
+          type: array
+          items:
+            type: string
+    FormInput:
+      type: object
+      required: [title, headers, questions]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        headers:
+          type: array
+          items:
+            type: string
+        questions:
+          type: array
+          minItems: 5
+          items:
+            $ref: "#/components/schemas/FormQuestion"
+    PublicForm:
+      type: object
+      required: [id, title, headers, questions]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        headers:
+          type: array
+          items:
+            type: string
+        questions:
+          type: array
+          minItems: 5
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/FormQuestion"
+    AdminForm:
+      type: object
+      required: [id, title, headers, questions, updatedAt]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        headers:
+          type: array
+          items:
+            type: string
+        questions:
+          type: array
+          minItems: 5
+          items:
+            $ref: "#/components/schemas/FormQuestion"
+        updatedAt:
+          type: string
+          format: date-time
+    ResponseAnswer:
+      type: object
+      required: [questionId, questionText, answer]
+      properties:
+        questionId:
+          type: string
+        questionText:
+          type: string
+        answer:
+          type: string
+        sourceRow:
+          type: array
+          items:
+            type: string
+    ResponseInput:
+      type: object
+      required: [respondentRole, answers]
+      properties:
+        respondentRole:
+          type: string
+          minLength: 1
+        answers:
+          type: array
+          minItems: 5
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/ResponseAnswer"
+    ResponseRecord:
+      type: object
+      required: [id, formId, respondentRole, answers, createdAt]
+      properties:
+        id:
+          type: string
+        formId:
+          type: string
+        respondentRole:
+          type: string
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResponseAnswer"
+        createdAt:
+          type: string
+          format: date-time
+    AdminLoginInput:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 1
+    AdminSession:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated:
+          type: boolean
+
